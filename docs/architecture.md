@@ -23,7 +23,7 @@ web/API -> domain services -> PostgreSQL -> outbox -> Redis/BullMQ -> workers ->
 - **No lost events** — transactional outbox between PostgreSQL and Redis.
 - **No duplicate checks** — `UNIQUE (monitor_id, scheduled_for)` and deterministic job ids.
 - **Crash recovery** — each running check holds a lease (`lease_until`); expired leases are reclaimed.
-- **Tenant isolation** — every business row carries `org_id`; composite foreign keys forbid cross-organization links.
+- **Tenant isolation** — every business row carries `org_id`; every service passes through one tenant gate (`authorize`), non-members get 404, and composite foreign keys forbid cross-organization links. See [0003](decisions/0003-authentication-and-tenancy.md).
 - **SSRF safety** — destinations are validated at every request and after every redirect, with the connection pinned to the validated IP.
 
 ## Health endpoints

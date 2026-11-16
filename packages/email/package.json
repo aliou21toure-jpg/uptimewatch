@@ -1,0 +1,13 @@
+{
+  "name": "@uptimewatch/email",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "typecheck": "tsc --noEmit", "test": "vitest run" },
+  "dependencies": {
+    "@uptimewatch/config": "workspace:*",
+    "resend": "^6.38.1"
+  },
+  "devDependencies": { "vitest": "^5.1.0" }
+}

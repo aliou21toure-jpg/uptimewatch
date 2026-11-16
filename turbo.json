@@ -1,10 +1,40 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": ["DATABASE_URL", "REDIS_URL", "NODE_ENV"],
+  "globalEnv": [
+    "DATABASE_URL",
+    "REDIS_URL",
+    "NODE_ENV"
+  ],
   "tasks": {
-    "build": { "dependsOn": ["^build"], "outputs": [".next/**", "!.next/cache/**", "dist/**"] },
-    "typecheck": { "dependsOn": ["^typecheck"] },
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        "^typecheck"
+      ]
+    },
     "test": {},
-    "dev": { "cache": false, "persistent": true }
-  }
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  },
+  "globalPassThroughEnv": [
+    "TEST_DATABASE_URL",
+    "DOCKER_HOST",
+    "TESTCONTAINERS_*",
+    "APP_URL",
+    "BETTER_AUTH_SECRET",
+    "RESEND_API_KEY",
+    "EMAIL_FROM",
+    "EMAIL_TRANSPORT"
+  ]
 }
