@@ -69,3 +69,19 @@ Header values are write-only: responses include `headerNames` only.
 |---|---|---|---|
 | GET | `/api/v1/organizations/:orgId/dashboard` | viewer | windows (24h/7d/30d), 30-day daily series, per-monitor uptime and latency, latest events |
 | GET | `/api/v1/organizations/:orgId/monitors/:monitorId/stats` | viewer | windows, 10-minute latency series (24 h), 30-day daily series |
+
+## Status pages
+| Method | Path | Permission | Body |
+|---|---|---|---|
+| POST | `/api/v1/organizations/:orgId/status-pages` | admin | `{ title, slug, description?, isPublic? }` |
+| GET | `/api/v1/organizations/:orgId/status-pages` | viewer | |
+| GET | `/api/v1/organizations/:orgId/status-pages/:pageId` | viewer | |
+| PATCH | `/api/v1/organizations/:orgId/status-pages/:pageId` | admin | any subset of the create fields |
+| DELETE | `/api/v1/organizations/:orgId/status-pages/:pageId` | admin | |
+| PUT | `/api/v1/organizations/:orgId/status-pages/:pageId/components` | admin | `[{ monitorId, displayName? }]` in display order |
+
+## Public (no authentication)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/public/status/:slug` | Public projection only; cached 30 s; CORS `*`; 404 for private or unknown pages |
+| GET | `/status/:slug` | HTML status page |

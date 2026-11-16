@@ -9,3 +9,4 @@ export * from "./monitors/state-machine";
 export * from "./organizations/permissions";
 export * from "./organizations/schemas";
 export * from "./organizations/service";
+export * from "./status-pages/service";

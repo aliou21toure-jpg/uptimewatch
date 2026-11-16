@@ -80,6 +80,7 @@ describe("incidents", () => {
     const detail = await getIncident(db, viewer, org.id, incidentId);
     expect(detail.status).toBe("acknowledged");
     expect(detail.acknowledgedByName).toBeTruthy();
+    expect(detail.updates[1]!.authorName).toBeTruthy(); // the author is kept internally, not in the text
     expect(detail.updates.map((u) => u.status)).toEqual(["investigating", "investigating", "identified"]);
   });
 

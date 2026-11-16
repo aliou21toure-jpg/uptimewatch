@@ -70,7 +70,10 @@ export function UpdateForm({ orgId, incidentId }: { orgId: string; incidentId: s
         </Select>
         <Button type="submit" disabled={pending}>{pending ? "Posting…" : "Post update"}</Button>
       </div>
-      <p className="text-xs text-neutral-500">The incident resolves on its own after two successful checks in a row.</p>
+      <p className="text-xs text-neutral-500">
+        The incident resolves on its own after two successful checks in a row. Updates are also published on any public
+        status page that shows this monitor.
+      </p>
     </form>
   );
 }

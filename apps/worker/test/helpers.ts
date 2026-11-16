@@ -9,7 +9,7 @@ export function connect(max = 10): { db: Database; close: () => Promise<void> } 
 }
 
 export async function reset(db: Database) {
-  await db.execute(sql`TRUNCATE monitor_daily_stats, notification_deliveries, notification_preferences, incident_updates, incidents, outbox_events, monitor_checks, monitors, organization_members, organizations, "user" CASCADE`);
+  await db.execute(sql`TRUNCATE status_page_monitors, status_pages, monitor_daily_stats, notification_deliveries, notification_preferences, incident_updates, incidents, outbox_events, monitor_checks, monitors, organization_members, organizations, "user" CASCADE`);
 }
 
 /** An organization with `count` enabled monitors due at `dueAt`. */

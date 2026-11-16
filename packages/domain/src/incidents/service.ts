@@ -118,7 +118,6 @@ export async function acknowledgeIncident(db: Database, actor: Actor, orgId: str
     if (!current) throw notFound("Incident");
     if (current.status === "resolved") throw conflict("This incident is already resolved");
     if (current.status === "acknowledged") return { status: "acknowledged" as const };
-    const [me] = await tx.select({ name: user.name }).from(user).where(eq(user.id, actor.userId));
     await tx
       .update(incidents)
       .set({ status: "acknowledged", acknowledgedAt: now, acknowledgedBy: actor.userId, updatedAt: now })
@@ -127,7 +126,8 @@ export async function acknowledgeIncident(db: Database, actor: Actor, orgId: str
       orgId,
       incidentId,
       status: "investigating",
-      message: `Acknowledged by ${me?.name ?? "a team member"}.`,
+      // No name in the message: updates can be published on status pages. The author is stored separately.
+      message: "Acknowledged — the team is looking into it.",
       createdBy: actor.userId,
     });
     return { status: "acknowledged" as const };

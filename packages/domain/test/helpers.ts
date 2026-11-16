@@ -10,7 +10,7 @@ export function connect(): { db: Database; close: () => Promise<void> } {
 
 export async function resetDatabase(db: Database): Promise<void> {
   await db.execute(
-    sql`TRUNCATE monitor_daily_stats, notification_deliveries, notification_preferences, incident_updates, incidents, outbox_events, monitor_checks, monitors, organization_invitations, organization_members, organizations, session, account, verification, "user" CASCADE`,
+    sql`TRUNCATE status_page_monitors, status_pages, monitor_daily_stats, notification_deliveries, notification_preferences, incident_updates, incidents, outbox_events, monitor_checks, monitors, organization_invitations, organization_members, organizations, session, account, verification, "user" CASCADE`,
   );
 }
 
