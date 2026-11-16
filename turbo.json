@@ -36,6 +36,7 @@
     "RESEND_API_KEY",
     "EMAIL_FROM",
     "EMAIL_TRANSPORT",
-    "ENCRYPTION_KEY"
+    "ENCRYPTION_KEY",
+    "TEST_REDIS_URL"
   ]
 }

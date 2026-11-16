@@ -1,30 +1,74 @@
 import { getEnv } from "@uptimewatch/config";
-import { closeDb, pingDatabase } from "@uptimewatch/db";
-import { createRedis, pingRedis } from "@uptimewatch/queue";
+import { closeDb, getDb } from "@uptimewatch/db";
+import { CHECKS_QUEUE, checkJobId, createChecksQueue, createRedis, pingRedis, type CheckJobData } from "@uptimewatch/queue";
+import { Worker } from "bullmq";
+import { processCheckJob, type CheckExecutor } from "./jobs/checks";
+import { runMaintenance } from "./jobs/maintenance";
+import { dispatchOutbox, type OutboxEvent } from "./jobs/outbox";
+import { recoverAbandonedChecks } from "./jobs/recovery";
+import { scheduleDueChecks } from "./jobs/scheduler";
+import { every } from "./loop";
+
+const CONCURRENCY = Number(process.env.WORKER_CONCURRENCY ?? 20);
 
 /**
- * Worker process entry point. It runs independently of the web app and can be restarted or
- * scaled horizontally. The scheduler, outbox dispatcher and check processors are added in
- * Phase 3; for now it validates configuration and connectivity and shuts down cleanly.
+ * Phase 3 placeholder: checks are planned, queued, reserved and recorded end to end, but no HTTP
+ * request is made yet. Phase 4 replaces this with the SSRF-safe HTTP client.
+ */
+const pendingEngine: CheckExecutor = async () => ({ state: "skipped", errorCode: "ENGINE_NOT_ENABLED" });
+
+/**
+ * One worker process runs every background role. Each role is safe to run in several processes at
+ * once (SKIP LOCKED, unique slots, advisory locks), so the worker scales by adding replicas.
  */
 async function main(): Promise<void> {
   const env = getEnv();
-  const redis = createRedis();
+  const db = getDb();
+  const queueConnection = createRedis({ forQueue: true });
+  const workerConnection = createRedis({ forQueue: true });
+  await pingRedis(queueConnection);
 
-  await pingDatabase();
-  await pingRedis(redis);
-  console.log(`[worker] ready (env=${env.NODE_ENV}) — postgres ok, redis ok`);
+  const checksQueue = createChecksQueue(queueConnection);
 
-  const keepAlive = setInterval(() => {}, 60_000);
+  const publish = async (event: OutboxEvent) => {
+    if (event.eventType !== "check.scheduled") throw new Error(`No publisher for ${event.eventType}`);
+    const data = event.payload as CheckJobData;
+    await checksQueue.add("check", data, { jobId: checkJobId(data.checkId, data.attempt) });
+  };
+
+  const checkWorker = new Worker<CheckJobData>(
+    CHECKS_QUEUE,
+    async (job) => processCheckJob(db, pendingEngine, job.data),
+    { connection: workerConnection, concurrency: CONCURRENCY },
+  );
+  checkWorker.on("failed", (job, error) => {
+    console.error(`[worker:checks] job ${job?.id ?? "?"} failed: ${error.name}`);
+  });
+
+  const loops = [
+    every("maintenance", 60 * 60_000, () => runMaintenance(db)),
+    every("scheduler", 2_000, () => scheduleDueChecks(db)),
+    every("outbox", 500, () => dispatchOutbox(db, publish)),
+    every("recovery", 30_000, async () => {
+      const r = await recoverAbandonedChecks(db);
+      if (r.requeued || r.failed || r.stale) console.warn("[worker:recovery]", r);
+    }),
+  ];
+
+  console.log(`[worker] ready (env=${env.NODE_ENV}, concurrency=${CONCURRENCY})`);
 
   let stopping = false;
   const shutdown = async (signal: string) => {
     if (stopping) return;
     stopping = true;
-    console.log(`[worker] ${signal} received, shutting down`);
-    clearInterval(keepAlive);
-    redis.disconnect();
+    console.log(`[worker] ${signal} received, draining`);
+    await Promise.all(loops.map((l) => l.stop()));
+    await checkWorker.close(); // waits for in-flight checks
+    await checksQueue.close();
+    queueConnection.disconnect();
+    workerConnection.disconnect();
     await closeDb();
+    console.log("[worker] stopped");
   };
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
   process.on("SIGINT", () => void shutdown("SIGINT"));

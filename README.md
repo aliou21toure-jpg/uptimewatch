@@ -3,8 +3,8 @@
 Multi-tenant uptime monitoring for websites and APIs: scheduled HTTP checks, confirmed-failure
 incident detection, email alerts, availability analytics and public status pages.
 
-> **Status: Phase 2 of 8 — monitor management.** Accounts, organizations, roles, invitations and
-> monitor configuration work end to end. Scheduled checks arrive in Phases 3–4.
+> **Status: Phase 3 of 8 — scheduling pipeline.** Checks are planned, queued through a transactional
+> outbox, executed once per slot by workers and recovered after crashes. Real HTTP checks arrive in Phase 4.
 
 ## Architecture
 
@@ -13,14 +13,16 @@ truth; Redis/BullMQ carries jobs; a transactional outbox links the two so no eve
 
 ```
 apps/web         Next.js 16 — UI, REST API (/api/v1), auth (/api/auth), health endpoints
-apps/worker      Scheduler, outbox dispatcher, check + notification workers (Phase 3+)
+apps/worker      Scheduler, outbox dispatcher, check workers, crash recovery, partition maintenance
 packages/domain  Business rules: tenant gate, roles, organizations, invitations, monitors, SSRF rules
 packages/db      Drizzle ORM schema, SQL migrations, client
 packages/email   Email transport (Resend, or console in development)
 packages/config  Validated environment (Zod)
-packages/queue   Redis connections (BullMQ in Phase 3)
+packages/queue   Redis connections, BullMQ queue and job contracts
 docs/           Architecture notes and decision records
 ```
+
+How checks flow and what is guaranteed: [0005 — scheduling and delivery](docs/decisions/0005-scheduling-and-delivery.md).
 
 Details: [architecture](docs/architecture.md) · [REST API](docs/api.md) · [decisions](docs/decisions).
 
@@ -56,8 +58,8 @@ curl localhost:3000/health/ready   # 200 when PostgreSQL and Redis are reachable
 | `pnpm lint` / `pnpm typecheck` / `pnpm test` | Quality gates (also run in CI) |
 | `pnpm db:generate` / `pnpm db:migrate` | Generate and apply Drizzle migrations |
 
-Integration tests start a throwaway PostgreSQL with Testcontainers (Docker required). To reuse a
-local database instead: `TEST_DATABASE_URL=postgres://... pnpm test`.
+Integration tests start throwaway PostgreSQL and Redis containers with Testcontainers (Docker
+required). To reuse local services instead: `TEST_DATABASE_URL=postgres://... TEST_REDIS_URL=redis://... pnpm test`.
 
 ## Roadmap
 
@@ -66,8 +68,8 @@ local database instead: `TEST_DATABASE_URL=postgres://... pnpm test`.
 | 0 | Monorepo, tooling, Docker, CI | Done |
 | 1 | Authentication and multi-tenancy | Done |
 | 2 | Monitor management | Done |
-| 3 | Scheduler, outbox, queues | Next |
-| 4 | HTTP check engine with SSRF protection | — |
+| 3 | Scheduler, outbox, queues | Done |
+| 4 | HTTP check engine with SSRF protection | Next |
 | 5 | Incidents and email notifications | — |
 | 6 | Dashboard and analytics | — |
 | 7 | Public status pages | — |
