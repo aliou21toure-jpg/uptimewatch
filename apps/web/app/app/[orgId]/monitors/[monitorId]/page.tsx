@@ -4,7 +4,8 @@ import { MonitorActions } from "@/components/monitors/monitor-actions";
 import { formatInterval, formatRelative, StateBadge } from "@/components/monitors/state-badge";
 import { Card } from "@/components/ui/primitives";
 import { getDb } from "@uptimewatch/db";
-import { can, listChecks } from "@uptimewatch/domain";
+import { IncidentTable } from "@/components/incidents/incident-table";
+import { can, listChecks, listIncidents } from "@uptimewatch/domain";
 import Link from "next/link";
 import { loadOrg } from "../../org-context";
 import { loadMonitor } from "./monitor-data";
@@ -13,7 +14,11 @@ export default async function MonitorPage({ params }: { params: Promise<{ orgId:
   const { orgId, monitorId } = await params;
   const { org, monitor: m } = await loadMonitor(orgId, monitorId);
   const { session } = await loadOrg(orgId);
-  const { data: checks } = await listChecks(getDb(), { userId: session.user.id }, orgId, monitorId, { limit: 60 });
+  const actor = { userId: session.user.id };
+  const [{ data: checks }, { data: incidents }] = await Promise.all([
+    listChecks(getDb(), actor, orgId, monitorId, { limit: 60 }),
+    listIncidents(getDb(), actor, orgId, { monitorId, limit: 10 }),
+  ]);
 
   const settings: [string, string][] = [
     ["Method", m.method],
@@ -73,6 +78,14 @@ export default async function MonitorPage({ params }: { params: Promise<{ orgId:
       <Card className="mt-4">
         <h2 className="mb-4 font-medium">Recent checks</h2>
         <CheckHistory checks={checks} />
+      </Card>
+      <Card className="mt-4 overflow-x-auto p-0">
+        <h2 className="px-6 pt-5 font-medium">Incidents</h2>
+        {incidents.length === 0 ? (
+          <p className="px-6 pb-5 pt-2 text-sm text-neutral-400">No incidents for this monitor.</p>
+        ) : (
+          <IncidentTable orgId={orgId} incidents={incidents} showMonitor={false} />
+        )}
       </Card>
       <AutoRefresh seconds={15} />
     </div>

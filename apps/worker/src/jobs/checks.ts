@@ -1,6 +1,6 @@
 import type { Database } from "@uptimewatch/db";
 import { schema } from "@uptimewatch/db";
-import { applyCheckResult, type Transition } from "@uptimewatch/domain";
+import { applyCheckResult, recordIncidentEffects, type Transition } from "@uptimewatch/domain";
 import type { CheckJobData } from "@uptimewatch/queue";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -107,15 +107,27 @@ export async function completeCheck(
     }
 
     const { next, transition } = applyCheckResult(monitor, outcome.state);
+    // The streak starts at the first failure; it ends with any success.
+    const failingSince = outcome.state === "down" ? (monitor.failingSince ?? reservation.scheduledFor) : null;
     await tx
       .update(monitors)
       .set({
         ...next,
+        failingSince,
         lastResultSlot: reservation.scheduledFor,
         lastCheckedAt: now,
         ...(outcome.state === "up" ? { lastSuccessAt: now } : {}),
       })
       .where(eq(monitors.id, monitor.id));
+    await recordIncidentEffects(tx, transition, {
+      monitor: { id: monitor.id, orgId: monitor.orgId, name: monitor.name },
+      slot: reservation.scheduledFor,
+      failingSince,
+      outcome: outcome.state,
+      errorCode: outcome.errorCode ?? null,
+      errorMessage: outcome.errorMessage ?? null,
+      now,
+    });
     return { recorded: true, transition };
   });
 }

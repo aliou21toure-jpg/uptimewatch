@@ -14,12 +14,14 @@
     "@uptimewatch/config": "workspace:*",
     "@uptimewatch/db": "workspace:*",
     "@uptimewatch/domain": "workspace:*",
+    "@uptimewatch/email": "workspace:*",
     "@uptimewatch/monitoring": "workspace:*",
     "@uptimewatch/queue": "workspace:*",
     "bullmq": "^6.7.6",
     "drizzle-orm": "^0.45.4",
     "ioredis": "^5.0.0",
     "pg": "^8.23.1",
+    "resend": "^6.38.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {

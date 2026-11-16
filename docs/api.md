@@ -49,3 +49,17 @@ Defaults: `GET`, every 60 s, 10 s timeout, status 200–299. Intervals: 30, 60, 
 Header values are write-only: responses include `headerNames` only.
 
 | GET | `/api/v1/organizations/:orgId/monitors/:monitorId/checks` | viewer | `?from=&to=&state=&limit=1..500&cursor=` (default: last 24 h, max range 31 days) |
+
+## Incidents
+| Method | Path | Permission | Body / query |
+|---|---|---|---|
+| GET | `/api/v1/organizations/:orgId/incidents` | viewer | `?status=open\|acknowledged\|resolved\|active&monitorId=&limit=&cursor=` |
+| GET | `/api/v1/organizations/:orgId/incidents/:incidentId` | viewer | incident + timeline + notification deliveries |
+| POST | `/api/v1/organizations/:orgId/incidents/:incidentId/acknowledge` | member | |
+| POST | `/api/v1/organizations/:orgId/incidents/:incidentId/updates` | member | `{ status: investigating\|identified\|monitoring, message }` |
+
+## Notification preferences (the signed-in user's own)
+| Method | Path | Body |
+|---|---|---|
+| GET | `/api/v1/organizations/:orgId/notification-preferences` | |
+| PATCH | `/api/v1/organizations/:orgId/notification-preferences` | `{ enabled?, incidentOpened?, incidentResolved? }` |

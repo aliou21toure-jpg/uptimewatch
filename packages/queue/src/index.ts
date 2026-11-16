@@ -59,4 +59,29 @@ export function createChecksQueue(connection: ConnectionOptions): Queue<CheckJob
   });
 }
 
+// ------------------------------------------------------------------ notifications queue
+
+export const NOTIFICATIONS_QUEUE = "notifications";
+
+export interface IncidentNotificationJobData {
+  incidentId: string;
+  orgId: string;
+  eventType: "incident.opened" | "incident.resolved";
+}
+
+export const notificationJobId = (data: IncidentNotificationJobData) =>
+  `${data.eventType.replace(".", "-")}-${data.incidentId}`;
+
+export function createNotificationsQueue(connection: ConnectionOptions): Queue<IncidentNotificationJobData> {
+  return new Queue<IncidentNotificationJobData>(NOTIFICATIONS_QUEUE, {
+    connection,
+    defaultJobOptions: {
+      attempts: 5,
+      backoff: { type: "exponential", delay: 5000 },
+      removeOnComplete: { age: 24 * 3600 },
+      removeOnFail: { age: 7 * 24 * 3600 },
+    },
+  });
+}
+
 export type { Queue, Redis };

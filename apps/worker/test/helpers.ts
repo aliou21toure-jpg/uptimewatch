@@ -9,7 +9,7 @@ export function connect(max = 10): { db: Database; close: () => Promise<void> } 
 }
 
 export async function reset(db: Database) {
-  await db.execute(sql`TRUNCATE outbox_events, monitor_checks, monitors, organization_members, organizations, "user" CASCADE`);
+  await db.execute(sql`TRUNCATE notification_deliveries, notification_preferences, incident_updates, incidents, outbox_events, monitor_checks, monitors, organization_members, organizations, "user" CASCADE`);
 }
 
 /** An organization with `count` enabled monitors due at `dueAt`. */
@@ -20,6 +20,7 @@ export async function seedMonitors(db: Database, count: number, dueAt: Date, ove
     .insert(schema.organizations)
     .values({ name: "Acme", slug: `acme-${userId.slice(0, 8)}`, createdBy: userId })
     .returning();
+  await db.insert(schema.organizationMembers).values({ orgId: org!.id, userId, role: "owner" });
   const rows = await db
     .insert(schema.monitors)
     .values(
@@ -32,7 +33,7 @@ export async function seedMonitors(db: Database, count: number, dueAt: Date, ove
       })),
     )
     .returning();
-  return { orgId: org!.id, monitors: rows };
+  return { orgId: org!.id, ownerId: userId, monitors: rows };
 }
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

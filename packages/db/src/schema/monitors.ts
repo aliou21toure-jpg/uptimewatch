@@ -58,6 +58,8 @@ export const monitors = pgTable(
     nextCheckAt: timestamp("next_check_at", { withTimezone: true }),
     lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
     lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+    /** Slot of the first failed check of the current failure streak (start of a potential outage). */
+    failingSince: timestamp("failing_since", { withTimezone: true }),
     /** Slot of the newest result applied to `state`; older results arriving late are ignored. */
     lastResultSlot: timestamp("last_result_slot", { withTimezone: true }),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),

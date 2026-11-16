@@ -1,19 +1,24 @@
 import { AutoRefresh } from "@/components/auto-refresh";
 import { Card } from "@/components/ui/primitives";
 import { getDb } from "@uptimewatch/db";
-import { can, monitorSummary } from "@uptimewatch/domain";
+import { IncidentTable } from "@/components/incidents/incident-table";
+import { can, listIncidents, monitorSummary } from "@uptimewatch/domain";
 import Link from "next/link";
 import { loadOrg } from "./org-context";
 
 export default async function OrgOverview({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
   const { session, org } = await loadOrg(orgId);
-  const summary = await monitorSummary(getDb(), { userId: session.user.id }, orgId);
+  const actor = { userId: session.user.id };
+  const [summary, active] = await Promise.all([
+    monitorSummary(getDb(), actor, orgId),
+    listIncidents(getDb(), actor, orgId, { status: "active", limit: 10 }),
+  ]);
   const down = summary.byState.down ?? 0;
 
   const tiles: [string, string, string | undefined][] = [
     ["Active monitors", String(summary.active), summary.total > summary.active ? `${summary.total - summary.active} paused` : undefined],
-    ["Down", String(down), down ? "Confirmed outages" : "All clear"],
+    ["Open incidents", String(active.data.length), down ? `${down} monitor${down > 1 ? "s" : ""} down` : "All clear"],
     ["Global uptime", "—", "Available once checks run"],
   ];
 
@@ -33,6 +38,12 @@ export default async function OrgOverview({ params }: { params: Promise<{ orgId:
           </Card>
         ))}
       </div>
+      {active.data.length > 0 && (
+        <Card className="mt-6 overflow-x-auto p-0">
+          <h2 className="px-6 pt-5 font-medium">Active incidents</h2>
+          <IncidentTable orgId={orgId} incidents={active.data} />
+        </Card>
+      )}
       <AutoRefresh seconds={20} />
       {summary.total === 0 && (
         <Card className="mt-6">

@@ -3,9 +3,9 @@
 Multi-tenant uptime monitoring for websites and APIs: scheduled HTTP checks, confirmed-failure
 incident detection, email alerts, availability analytics and public status pages.
 
-> **Status: Phase 4 of 8 — live monitoring.** Websites and APIs are checked on schedule with an
-> SSRF-safe HTTP client; monitors move through healthy, degraded, down and recovering. Incidents and
-> email alerts arrive in Phase 5.
+> **Status: Phase 5 of 8 — incidents and alerts.** Websites and APIs are checked on schedule with an
+> SSRF-safe HTTP client; confirmed outages open incidents, the team is emailed exactly once when a
+> service goes down and when it recovers. Dashboards and status pages come next.
 
 ## Architecture
 
@@ -14,7 +14,7 @@ truth; Redis/BullMQ carries jobs; a transactional outbox links the two so no eve
 
 ```
 apps/web         Next.js 16 — UI, REST API (/api/v1), auth (/api/auth), health endpoints
-apps/worker      Scheduler, outbox dispatcher, check workers, crash recovery, partition maintenance
+apps/worker      Scheduler, outbox dispatcher, check + notification workers, crash recovery, maintenance
 packages/domain  Business rules: tenant gate, roles, organizations, invitations, monitors, state machine
 packages/monitoring  SSRF-safe HTTP check client, destination policy, error classification
 packages/db      Drizzle ORM schema, SQL migrations, client
@@ -26,6 +26,7 @@ docs/           Architecture notes and decision records
 
 How checks flow and what is guaranteed: [0005 — scheduling and delivery](docs/decisions/0005-scheduling-and-delivery.md).
 How a check is made safely: [0006 — check engine and SSRF](docs/decisions/0006-check-engine.md).
+How alerts are sent once: [0007 — incidents and notifications](docs/decisions/0007-incidents-and-notifications.md).
 
 Details: [architecture](docs/architecture.md) · [REST API](docs/api.md) · [decisions](docs/decisions).
 
@@ -73,8 +74,8 @@ required). To reuse local services instead: `TEST_DATABASE_URL=postgres://... TE
 | 2 | Monitor management | Done |
 | 3 | Scheduler, outbox, queues | Done |
 | 4 | HTTP check engine with SSRF protection | Done |
-| 5 | Incidents and email notifications | Next |
-| 6 | Dashboard and analytics | — |
+| 5 | Incidents and email notifications | Done |
+| 6 | Dashboard and analytics | Next |
 | 7 | Public status pages | — |
 | 8 | Hardening, load tests, deployment | — |
 

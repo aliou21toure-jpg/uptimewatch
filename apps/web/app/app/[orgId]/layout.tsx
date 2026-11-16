@@ -14,7 +14,9 @@ export default async function OrgLayout({ children, params }: { children: ReactN
   const nav = [
     { href: `/app/${orgId}`, label: "Overview" },
     { href: `/app/${orgId}/monitors`, label: "Monitors" },
+    { href: `/app/${orgId}/incidents`, label: "Incidents" },
     { href: `/app/${orgId}/settings/members`, label: "Members" },
+    { href: `/app/${orgId}/settings/notifications`, label: "Notifications" },
   ];
 
   return (

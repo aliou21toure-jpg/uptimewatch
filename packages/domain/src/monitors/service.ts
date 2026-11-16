@@ -4,6 +4,7 @@ import { and, count, desc, eq, ilike, lt, or, sql, type SQL } from "drizzle-orm"
 import { randomUUID } from "node:crypto";
 import { ZodError } from "zod";
 import { DomainError, notFound } from "../errors";
+import { closeActiveIncident } from "../incidents/engine";
 import { authorize, type Actor } from "../organizations/service";
 import { open, seal } from "../security/secret-box";
 import {
@@ -136,12 +137,15 @@ export async function updateMonitor(db: Database, actor: Actor, orgId: string, m
         ...(headers !== undefined ? encryptHeaders(orgId, monitorId, headers) : {}),
         // A new target starts from a clean slate: previous results described another endpoint.
         ...(targetChanged && current.enabled
-          ? { state: "unknown" as const, consecutiveFailures: 0, consecutiveSuccesses: 0, nextCheckAt: new Date() }
+          ? { state: "unknown" as const, consecutiveFailures: 0, consecutiveSuccesses: 0, failingSince: null, nextCheckAt: new Date() }
           : {}),
         updatedAt: new Date(),
       })
       .where(and(eq(monitors.id, monitorId), eq(monitors.orgId, orgId)))
       .returning();
+    if (targetChanged && current.enabled) {
+      await closeActiveIncident(tx, orgId, monitorId, new Date(), actor.userId, "The monitored URL changed; the incident was closed.");
+    }
     return toMonitorDto(row!);
   });
 }
@@ -151,11 +155,13 @@ export async function pauseMonitor(db: Database, actor: Actor, orgId: string, mo
     await authorize(tx, actor, orgId, "monitor:write");
     const current = await loadForUpdate(tx, orgId, monitorId);
     if (!current.enabled) return toMonitorDto(current);
+    const now = new Date();
     const [row] = await tx
       .update(monitors)
-      .set({ enabled: false, state: "paused", nextCheckAt: null, updatedAt: new Date() })
+      .set({ enabled: false, state: "paused", nextCheckAt: null, failingSince: null, updatedAt: now })
       .where(eq(monitors.id, monitorId))
       .returning();
+    await closeActiveIncident(tx, orgId, monitorId, now, actor.userId, "Monitoring was paused; the incident was closed without confirming recovery.");
     return toMonitorDto(row!);
   });
 }

@@ -10,31 +10,56 @@ const baseSchema = z.object({
   REDIS_URL: redisUrl,
 });
 
-/** Additional variables for the web application (authentication and email). */
-const webSchema = baseSchema
-  .extend({
-    APP_URL: z.url().default("http://localhost:3000"),
-    BETTER_AUTH_SECRET: z.string().min(32, "must be at least 32 characters"),
-    RESEND_API_KEY: z.string().min(1).optional(),
-    EMAIL_FROM: z.string().min(3).default("UptimeWatch <onboarding@resend.dev>"),
-    /**
-     * `console` prints emails to the server log instead of sending them. It is the default in
-     * development; in production it must be chosen explicitly (e.g. for CI end-to-end runs).
-     */
-    EMAIL_TRANSPORT: z.enum(["resend", "console"]).optional(),
-  })
-  .transform((env) => ({
-    ...env,
-    EMAIL_TRANSPORT:
-      env.EMAIL_TRANSPORT ?? (env.RESEND_API_KEY || env.NODE_ENV === "production" ? "resend" : "console"),
-  }))
-  .refine((env) => env.EMAIL_TRANSPORT !== "resend" || env.RESEND_API_KEY, {
+const emailFields = {
+  APP_URL: z.url().default("http://localhost:3000"),
+  RESEND_API_KEY: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().min(3).default("UptimeWatch <onboarding@resend.dev>"),
+  /**
+   * `console` prints emails to the server log instead of sending them. It is the default in
+   * development; in production it must be chosen explicitly (e.g. for CI end-to-end runs).
+   */
+  EMAIL_TRANSPORT: z.enum(["resend", "console"]).optional(),
+};
+
+interface EmailInput {
+  NODE_ENV: "development" | "test" | "production";
+  RESEND_API_KEY?: string | undefined;
+  EMAIL_TRANSPORT?: "resend" | "console" | undefined;
+}
+
+/** Resend unless told otherwise; console by default in development. */
+const resolveTransport = <T extends EmailInput>(env: T) => ({
+  ...env,
+  EMAIL_TRANSPORT: (env.EMAIL_TRANSPORT ??
+    (env.RESEND_API_KEY || env.NODE_ENV === "production" ? "resend" : "console")) as "resend" | "console",
+});
+
+const requireKeyForResend: [
+  (env: { EMAIL_TRANSPORT: "resend" | "console"; RESEND_API_KEY?: string | undefined }) => boolean,
+  { message: string; path: string[] },
+] = [
+  (env) => env.EMAIL_TRANSPORT !== "resend" || Boolean(env.RESEND_API_KEY),
+  {
     message: "is required to send emails with Resend (or set EMAIL_TRANSPORT=console outside production use)",
     path: ["RESEND_API_KEY"],
-  });
+  },
+];
+
+/** Every process that sends email: web (auth, invitations) and worker (incident alerts). */
+const emailSchema = z
+  .object({ NODE_ENV: baseSchema.shape.NODE_ENV, ...emailFields })
+  .transform(resolveTransport)
+  .refine(...requireKeyForResend);
+
+/** Web application: base + authentication + email. */
+const webSchema = baseSchema
+  .extend({ ...emailFields, BETTER_AUTH_SECRET: z.string().min(32, "must be at least 32 characters") })
+  .transform(resolveTransport)
+  .refine(...requireKeyForResend);
 
 export type Env = z.infer<typeof baseSchema>;
 export type WebEnv = z.infer<typeof webSchema>;
+export type EmailEnv = z.infer<typeof emailSchema>;
 
 export class EnvValidationError extends Error {
   constructor(public readonly issues: string[]) {
@@ -62,6 +87,13 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
 
 export function parseWebEnv(source: Record<string, string | undefined>): WebEnv {
   return parseWith(webSchema, source);
+}
+
+let cachedEmail: EmailEnv | undefined;
+
+export function getEmailEnv(): EmailEnv {
+  cachedEmail ??= parseWith(emailSchema, process.env);
+  return cachedEmail;
 }
 
 let cachedBase: Env | undefined;

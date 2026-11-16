@@ -38,8 +38,8 @@ const executor = createHttpExecutor({
 async function runOnce(monitorId: string) {
   await db.update(schema.monitors).set({ nextCheckAt: new Date(Date.now() - 1000) }).where(eq(schema.monitors.id, monitorId));
   await scheduleDueChecks(db);
-  const [event] = await db.select().from(schema.outboxEvents);
-  await db.delete(schema.outboxEvents);
+  const [event] = await db.select().from(schema.outboxEvents).where(eq(schema.outboxEvents.eventType, "check.scheduled"));
+  await db.delete(schema.outboxEvents).where(eq(schema.outboxEvents.eventType, "check.scheduled"));
   return processCheckJob(db, executor, event!.payload as never);
 }
 
@@ -58,5 +58,7 @@ describe("HTTP executor in the worker", () => {
     const checks = await db.select().from(schema.monitorChecks);
     expect(checks.filter((c) => c.state === "down").every((c) => c.httpStatus === 500 && c.errorCode === "UNEXPECTED_STATUS")).toBe(true);
     expect(checks.filter((c) => c.state === "up").every((c) => c.latencyMs !== null)).toBe(true);
+    const [incident] = await db.select().from(schema.incidents);
+    expect(incident).toMatchObject({ status: "resolved", causeCode: "UNEXPECTED_STATUS", failedCheckCount: 2 });
   });
 });

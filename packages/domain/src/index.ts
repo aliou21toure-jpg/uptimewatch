@@ -1,4 +1,6 @@
 export * from "./errors";
+export * from "./incidents/engine";
+export * from "./incidents/service";
 export * from "./monitors/checks";
 export * from "./monitors/schemas";
 export * from "./monitors/service";

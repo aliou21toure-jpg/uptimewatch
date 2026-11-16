@@ -1,4 +1,4 @@
-import { getWebEnv } from "@uptimewatch/config";
+import { getEmailEnv } from "@uptimewatch/config";
 import { Resend } from "resend";
 
 export interface EmailMessage {
@@ -8,15 +8,23 @@ export interface EmailMessage {
   html: string;
 }
 
+export interface SendOptions {
+  /** Same key → the provider sends the email at most once, even if we retry after a timeout. */
+  idempotencyKey?: string;
+}
+
 export interface EmailSender {
-  send(message: EmailMessage): Promise<{ id: string | null }>;
+  send(message: EmailMessage, options?: SendOptions): Promise<{ id: string | null }>;
 }
 
 export function createResendSender(apiKey: string, from: string): EmailSender {
   const resend = new Resend(apiKey);
   return {
-    async send(message) {
-      const { data, error } = await resend.emails.send({ from, ...message });
+    async send(message, options = {}) {
+      const { data, error } = await resend.emails.send(
+        { from, ...message },
+        options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {},
+      );
       if (error) throw new Error(`Email provider rejected the message: ${error.name}`);
       return { id: data?.id ?? null };
     },
@@ -42,7 +50,7 @@ let sender: EmailSender | undefined;
 
 export function getEmailSender(): EmailSender {
   if (!sender) {
-    const env = getWebEnv();
+    const env = getEmailEnv();
     sender =
       env.EMAIL_TRANSPORT === "resend" && env.RESEND_API_KEY
         ? createResendSender(env.RESEND_API_KEY, env.EMAIL_FROM)

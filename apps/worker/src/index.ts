@@ -1,10 +1,23 @@
 import { getEnv } from "@uptimewatch/config";
 import { closeDb, getDb } from "@uptimewatch/db";
-import { CHECKS_QUEUE, checkJobId, createChecksQueue, createRedis, pingRedis, type CheckJobData } from "@uptimewatch/queue";
+import { getEmailSender } from "@uptimewatch/email";
+import {
+  CHECKS_QUEUE,
+  NOTIFICATIONS_QUEUE,
+  checkJobId,
+  createChecksQueue,
+  createNotificationsQueue,
+  createRedis,
+  notificationJobId,
+  pingRedis,
+  type CheckJobData,
+  type IncidentNotificationJobData,
+} from "@uptimewatch/queue";
 import { Worker } from "bullmq";
 import { processCheckJob } from "./jobs/checks";
 import { createHttpExecutor } from "./jobs/http-executor";
 import { runMaintenance } from "./jobs/maintenance";
+import { fanOutIncidentEvent, sendDueDeliveries } from "./jobs/notifications";
 import { dispatchOutbox, type OutboxEvent } from "./jobs/outbox";
 import { recoverAbandonedChecks } from "./jobs/recovery";
 import { scheduleDueChecks } from "./jobs/scheduler";
@@ -22,15 +35,30 @@ async function main(): Promise<void> {
   const db = getDb();
   const queueConnection = createRedis({ forQueue: true });
   const workerConnection = createRedis({ forQueue: true });
+  const notificationConnection = createRedis({ forQueue: true });
   await pingRedis(queueConnection);
 
   const checksQueue = createChecksQueue(queueConnection);
+  const notificationsQueue = createNotificationsQueue(queueConnection);
   const executor = createHttpExecutor();
+  const email = getEmailSender();
 
   const publish = async (event: OutboxEvent) => {
-    if (event.eventType !== "check.scheduled") throw new Error(`No publisher for ${event.eventType}`);
-    const data = event.payload as CheckJobData;
-    await checksQueue.add("check", data, { jobId: checkJobId(data.checkId, data.attempt) });
+    switch (event.eventType) {
+      case "check.scheduled": {
+        const data = event.payload as CheckJobData;
+        await checksQueue.add("check", data, { jobId: checkJobId(data.checkId, data.attempt) });
+        return;
+      }
+      case "incident.opened":
+      case "incident.resolved": {
+        const data = { ...(event.payload as Omit<IncidentNotificationJobData, "eventType">), eventType: event.eventType };
+        await notificationsQueue.add(event.eventType, data, { jobId: notificationJobId(data) });
+        return;
+      }
+      default:
+        throw new Error(`No publisher for ${event.eventType}`);
+    }
   };
 
   const checkWorker = new Worker<CheckJobData>(
@@ -42,10 +70,27 @@ async function main(): Promise<void> {
     console.error(`[worker:checks] job ${job?.id ?? "?"} failed: ${error.name}`);
   });
 
+  const notificationWorker = new Worker<IncidentNotificationJobData>(
+    NOTIFICATIONS_QUEUE,
+    async (job) => {
+      await fanOutIncidentEvent(db, job.data);
+      return sendDueDeliveries(db, email, { incidentId: job.data.incidentId });
+    },
+    { connection: notificationConnection, concurrency: 5 },
+  );
+  notificationWorker.on("failed", (job, error) => {
+    console.error(`[worker:notifications] job ${job?.id ?? "?"} failed: ${error.name}`);
+  });
+
   const loops = [
     every("maintenance", 60 * 60_000, () => runMaintenance(db)),
     every("scheduler", 2_000, () => scheduleDueChecks(db)),
     every("outbox", 500, () => dispatchOutbox(db, publish)),
+    // Retries failed or interrupted email deliveries with exponential backoff.
+    every("deliveries", 15_000, async () => {
+      const r = await sendDueDeliveries(db, email);
+      if (r.retrying || r.failed) console.warn("[worker:deliveries]", r);
+    }),
     every("recovery", 30_000, async () => {
       const r = await recoverAbandonedChecks(db);
       if (r.requeued || r.failed || r.stale) console.warn("[worker:recovery]", r);
@@ -60,10 +105,11 @@ async function main(): Promise<void> {
     stopping = true;
     console.log(`[worker] ${signal} received, draining`);
     await Promise.all(loops.map((l) => l.stop()));
-    await checkWorker.close(); // waits for in-flight checks
-    await checksQueue.close();
+    await Promise.all([checkWorker.close(), notificationWorker.close()]); // wait for in-flight jobs
+    await Promise.all([checksQueue.close(), notificationsQueue.close()]);
     queueConnection.disconnect();
     workerConnection.disconnect();
+    notificationConnection.disconnect();
     await closeDb();
     console.log("[worker] stopped");
   };
