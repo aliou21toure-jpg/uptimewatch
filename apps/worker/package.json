@@ -1,0 +1,25 @@
+{
+  "name": "@uptimewatch/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@uptimewatch/config": "workspace:*",
+    "@uptimewatch/db": "workspace:*",
+    "@uptimewatch/queue": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "ioredis": "^5.0.0",
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "tsup": "^9.0.0",
+    "tsx": "^4.23.15"
+  }
+}
