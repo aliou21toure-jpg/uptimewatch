@@ -1,5 +1,6 @@
 import type { Database } from "@uptimewatch/db";
 import { sql } from "drizzle-orm";
+import { DAILY_STATS_RETENTION_MONTHS } from "./stats";
 
 export const CHECK_RETENTION_DAYS = 30;
 export const OUTBOX_RETENTION_DAYS = 7;
@@ -26,7 +27,11 @@ export async function runMaintenance(db: Database, now = new Date()) {
     const outbox = await tx.execute(
       sql`DELETE FROM outbox_events WHERE published_at < ${now.toISOString()}::timestamptz - make_interval(days => ${OUTBOX_RETENTION_DAYS}::int)`,
     );
+    const stats = await tx.execute(
+      sql`DELETE FROM monitor_daily_stats WHERE day < (${today} - make_interval(months => ${DAILY_STATS_RETENTION_MONTHS}::int))::date`,
+    );
     return {
+      statsDeleted: stats.rowCount ?? 0,
       partitionsCreated: created.rows[0]?.n ?? 0,
       partitionsDropped: dropped.rows[0]?.n ?? 0,
       outboxDeleted: outbox.rowCount ?? 0,

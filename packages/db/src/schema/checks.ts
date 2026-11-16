@@ -43,6 +43,8 @@ export const monitorChecks = pgTable(
     latencyMs: integer("latency_ms"),
     errorCode: varchar("error_code", { length: 80 }),
     errorMessage: varchar("error_message", { length: 500 }),
+    /** Slots skipped right before this one because the platform was behind (coverage indicator). */
+    missedSlots: integer("missed_slots").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

@@ -36,6 +36,13 @@
       "when": 1794848845395,
       "tag": "0004_incidents_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794850032264,
+      "tag": "0005_daily_stats",
+      "breakpoints": true
     }
   ]
 }

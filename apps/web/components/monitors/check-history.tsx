@@ -38,18 +38,14 @@ function describe(c: CheckRow): string {
 /** Last results as a strip (oldest → newest) plus a detailed table. */
 export function CheckHistory({ checks }: { checks: CheckRow[] }) {
   if (checks.length === 0) {
-    return <p className="text-sm text-neutral-400">No checks yet. The first one runs within a few seconds of creation.</p>;
+    return <p className="text-sm text-neutral-400">No checks match.</p>;
   }
   const strip = [...checks].reverse();
-  const finished = checks.filter((c) => c.state === "up" || c.state === "down");
-  const latencies = finished.filter((c) => c.latencyMs !== null && c.state === "up").map((c) => c.latencyMs!);
-  const avg = latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : null;
-  const upShare = finished.length ? (100 * finished.filter((c) => c.state === "up").length) / finished.length : null;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex h-8 items-end gap-0.5" aria-label="Recent check results, oldest to newest">
+        <div className="flex h-6 items-end gap-0.5" aria-label="Check results on this page, oldest to newest">
           {strip.map((c) => (
             <span
               key={c.id}
@@ -58,10 +54,6 @@ export function CheckHistory({ checks }: { checks: CheckRow[] }) {
             />
           ))}
         </div>
-        <dl className="flex gap-6 text-sm">
-          <div><dt className="text-neutral-500">Up (recent)</dt><dd className="font-medium">{upShare === null ? "—" : `${upShare.toFixed(1)}%`}</dd></div>
-          <div><dt className="text-neutral-500">Avg. response</dt><dd className="font-medium">{avg === null ? "—" : `${avg} ms`}</dd></div>
-        </dl>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">

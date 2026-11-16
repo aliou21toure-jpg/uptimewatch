@@ -3,9 +3,9 @@
 Multi-tenant uptime monitoring for websites and APIs: scheduled HTTP checks, confirmed-failure
 incident detection, email alerts, availability analytics and public status pages.
 
-> **Status: Phase 5 of 8 — incidents and alerts.** Websites and APIs are checked on schedule with an
-> SSRF-safe HTTP client; confirmed outages open incidents, the team is emailed exactly once when a
-> service goes down and when it recovers. Dashboards and status pages come next.
+> **Status: Phase 6 of 8 — dashboards.** Websites and APIs are checked on schedule with an SSRF-safe
+> HTTP client; confirmed outages open incidents and email the team exactly once; dashboards show
+> uptime over 24 h / 7 d / 30 d, P50/P95 latency, downtime and monitoring coverage. Public status pages come next.
 
 ## Architecture
 
@@ -27,6 +27,7 @@ docs/           Architecture notes and decision records
 How checks flow and what is guaranteed: [0005 — scheduling and delivery](docs/decisions/0005-scheduling-and-delivery.md).
 How a check is made safely: [0006 — check engine and SSRF](docs/decisions/0006-check-engine.md).
 How alerts are sent once: [0007 — incidents and notifications](docs/decisions/0007-incidents-and-notifications.md).
+What the numbers mean: [0008 — analytics](docs/decisions/0008-analytics.md).
 
 Details: [architecture](docs/architecture.md) · [REST API](docs/api.md) · [decisions](docs/decisions).
 
@@ -75,8 +76,8 @@ required). To reuse local services instead: `TEST_DATABASE_URL=postgres://... TE
 | 3 | Scheduler, outbox, queues | Done |
 | 4 | HTTP check engine with SSRF protection | Done |
 | 5 | Incidents and email notifications | Done |
-| 6 | Dashboard and analytics | Next |
-| 7 | Public status pages | — |
+| 6 | Dashboard and analytics | Done |
+| 7 | Public status pages | Next |
 | 8 | Hardening, load tests, deployment | — |
 
 ## License

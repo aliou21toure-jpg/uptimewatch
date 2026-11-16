@@ -1,24 +1,48 @@
+import { WindowCards } from "@/components/analytics/window-cards";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { LatencyChart } from "@/components/charts/latency-chart";
+import { UptimeStrip } from "@/components/charts/uptime-strip";
 import { CheckHistory } from "@/components/monitors/check-history";
 import { MonitorActions } from "@/components/monitors/monitor-actions";
 import { formatInterval, formatRelative, StateBadge } from "@/components/monitors/state-badge";
 import { Card } from "@/components/ui/primitives";
 import { getDb } from "@uptimewatch/db";
 import { IncidentTable } from "@/components/incidents/incident-table";
-import { can, listChecks, listIncidents } from "@uptimewatch/domain";
+import { can, listChecks, listIncidents, monitorStats } from "@uptimewatch/domain";
 import Link from "next/link";
 import { loadOrg } from "../../org-context";
 import { loadMonitor } from "./monitor-data";
 
-export default async function MonitorPage({ params }: { params: Promise<{ orgId: string; monitorId: string }> }) {
+const RESULT_FILTERS = [
+  { value: "", label: "All" },
+  { value: "down", label: "Failures" },
+  { value: "error", label: "Platform errors" },
+];
+
+export default async function MonitorPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ orgId: string; monitorId: string }>;
+  searchParams: Promise<{ result?: string; cursor?: string }>;
+}) {
   const { orgId, monitorId } = await params;
+  const search = await searchParams;
+  const result = search.result === "down" || search.result === "error" ? search.result : undefined;
   const { org, monitor: m } = await loadMonitor(orgId, monitorId);
   const { session } = await loadOrg(orgId);
   const actor = { userId: session.user.id };
-  const [{ data: checks }, { data: incidents }] = await Promise.all([
-    listChecks(getDb(), actor, orgId, monitorId, { limit: 60 }),
+  const [history, { data: incidents }, stats] = await Promise.all([
+    listChecks(getDb(), actor, orgId, monitorId, {
+      limit: 30,
+      ...(result ? { state: result } : {}),
+      ...(search.cursor ? { cursor: search.cursor } : {}),
+    }).catch(() => listChecks(getDb(), actor, orgId, monitorId, { limit: 30 })),
     listIncidents(getDb(), actor, orgId, { monitorId, limit: 10 }),
+    monitorStats(getDb(), actor, orgId, monitorId),
   ]);
+  const checks = history.data;
+  const pageHref = (extra: Record<string, string>) => `?${new URLSearchParams({ ...(result ? { result } : {}), ...extra })}`;
 
   const settings: [string, string][] = [
     ["Method", m.method],
@@ -51,7 +75,17 @@ export default async function MonitorPage({ params }: { params: Promise<{ orgId:
         {can(org.role, "monitor:write") && <MonitorActions orgId={orgId} monitorId={m.id} enabled={m.enabled} name={m.name} />}
       </div>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
+      <div className="mt-8"><WindowCards windows={stats.windows} /></div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Card><LatencyChart points={stats.hourly} /></Card>
+        <Card>
+          <h2 className="mb-4 text-sm font-medium">Daily uptime, last 30 days</h2>
+          <UptimeStrip days={stats.daily} label={`Daily uptime of ${m.name} over the last 30 days`} />
+        </Card>
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
         <Card>
           <h2 className="mb-4 font-medium">Configuration</h2>
           <dl className="grid grid-cols-2 gap-y-3 text-sm">
@@ -76,8 +110,27 @@ export default async function MonitorPage({ params }: { params: Promise<{ orgId:
         </Card>
       </div>
       <Card className="mt-4">
-        <h2 className="mb-4 font-medium">Recent checks</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-medium">Check history <span className="text-sm font-normal text-neutral-500">· last 24 h</span></h2>
+          <nav className="flex gap-1 text-sm" aria-label="Filter checks">
+            {RESULT_FILTERS.map((f) => (
+              <Link
+                key={f.value}
+                href={f.value ? `?result=${f.value}` : "?"}
+                className={`rounded-md px-3 py-1 ${(result ?? "") === f.value ? "bg-neutral-800 text-neutral-100" : "text-neutral-400 hover:text-neutral-100"}`}
+              >
+                {f.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
         <CheckHistory checks={checks} />
+        {(search.cursor || history.nextCursor) && (
+          <div className="mt-4 flex justify-end gap-4 text-sm">
+            {search.cursor && <Link href={pageHref({})} className="text-neutral-400 hover:text-neutral-100">Newest</Link>}
+            {history.nextCursor && <Link href={pageHref({ cursor: history.nextCursor })} className="hover:underline">Older checks →</Link>}
+          </div>
+        )}
       </Card>
       <Card className="mt-4 overflow-x-auto p-0">
         <h2 className="px-6 pt-5 font-medium">Incidents</h2>
@@ -87,7 +140,7 @@ export default async function MonitorPage({ params }: { params: Promise<{ orgId:
           <IncidentTable orgId={orgId} incidents={incidents} showMonitor={false} />
         )}
       </Card>
-      <AutoRefresh seconds={15} />
+      {!search.cursor && <AutoRefresh seconds={30} />}
     </div>
   );
 }

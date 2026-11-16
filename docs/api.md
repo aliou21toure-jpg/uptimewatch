@@ -63,3 +63,9 @@ Header values are write-only: responses include `headerNames` only.
 |---|---|---|
 | GET | `/api/v1/organizations/:orgId/notification-preferences` | |
 | PATCH | `/api/v1/organizations/:orgId/notification-preferences` | `{ enabled?, incidentOpened?, incidentResolved? }` |
+
+## Analytics
+| Method | Path | Permission | Returns |
+|---|---|---|---|
+| GET | `/api/v1/organizations/:orgId/dashboard` | viewer | windows (24h/7d/30d), 30-day daily series, per-monitor uptime and latency, latest events |
+| GET | `/api/v1/organizations/:orgId/monitors/:monitorId/stats` | viewer | windows, 10-minute latency series (24 h), 30-day daily series |

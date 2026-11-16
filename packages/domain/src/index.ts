@@ -1,3 +1,4 @@
+export * from "./analytics/service";
 export * from "./errors";
 export * from "./incidents/engine";
 export * from "./incidents/service";

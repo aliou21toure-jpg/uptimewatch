@@ -21,6 +21,7 @@ import { fanOutIncidentEvent, sendDueDeliveries } from "./jobs/notifications";
 import { dispatchOutbox, type OutboxEvent } from "./jobs/outbox";
 import { recoverAbandonedChecks } from "./jobs/recovery";
 import { scheduleDueChecks } from "./jobs/scheduler";
+import { refreshDailyStats, refreshRecentDailyStats } from "./jobs/stats";
 import { every } from "./loop";
 
 const CONCURRENCY = Number(process.env.WORKER_CONCURRENCY ?? 20);
@@ -82,6 +83,11 @@ async function main(): Promise<void> {
     console.error(`[worker:notifications] job ${job?.id ?? "?"} failed: ${error.name}`);
   });
 
+  // Rebuild the last 30 days once at start (raw checks are kept 30 days), then keep today fresh.
+  await refreshDailyStats(db, new Date(Date.now() - 30 * 86_400_000), new Date()).catch((error: unknown) =>
+    console.error("[worker:stats] backfill failed:", error instanceof Error ? error.message : error),
+  );
+
   const loops = [
     every("maintenance", 60 * 60_000, () => runMaintenance(db)),
     every("scheduler", 2_000, () => scheduleDueChecks(db)),
@@ -91,6 +97,7 @@ async function main(): Promise<void> {
       const r = await sendDueDeliveries(db, email);
       if (r.retrying || r.failed) console.warn("[worker:deliveries]", r);
     }),
+    every("stats", 5 * 60_000, () => refreshRecentDailyStats(db)),
     every("recovery", 30_000, async () => {
       const r = await recoverAbandonedChecks(db);
       if (r.requeued || r.failed || r.stale) console.warn("[worker:recovery]", r);

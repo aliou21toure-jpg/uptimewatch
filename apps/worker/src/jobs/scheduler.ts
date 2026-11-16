@@ -13,6 +13,7 @@ export interface ScheduleResult {
  * 3. inserts the check (one per monitor and slot, enforced by a unique constraint) and its outbox
  *    event in the same transaction, so a planned check can never be lost before reaching Redis;
  * 4. advances `next_check_at` by one interval from the slot.
+ * Skipped slots are recorded on the check (`missed_slots`) for the coverage indicator.
  */
 export async function scheduleDueChecks(
   db: Executor,
@@ -33,12 +34,18 @@ export async function scheduleDueChecks(
           WHEN next_check_at < ${now}::timestamptz - make_interval(secs => interval_seconds)
             THEN date_trunc('second', ${now}::timestamptz)
           ELSE next_check_at
-        END AS slot
+        END AS slot,
+        -- Slots that were not run because the platform was behind; they lower the coverage indicator.
+        CASE
+          WHEN next_check_at < ${now}::timestamptz - make_interval(secs => interval_seconds)
+            THEN floor(extract(epoch FROM ${now}::timestamptz - next_check_at) / interval_seconds)::int
+          ELSE 0
+        END AS missed
       FROM due
     ),
     inserted AS (
-      INSERT INTO monitor_checks (org_id, monitor_id, scheduled_for)
-      SELECT org_id, id, slot FROM slots
+      INSERT INTO monitor_checks (org_id, monitor_id, scheduled_for, missed_slots)
+      SELECT org_id, id, slot, missed FROM slots
       ON CONFLICT (monitor_id, scheduled_for) DO NOTHING
       RETURNING id, org_id, monitor_id, scheduled_for
     ),
