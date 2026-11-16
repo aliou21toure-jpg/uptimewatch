@@ -1,0 +1,1 @@
+ALTER TABLE "monitors" ADD COLUMN "last_result_slot" timestamp with time zone;

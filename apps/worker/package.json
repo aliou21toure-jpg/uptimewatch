@@ -13,6 +13,8 @@
   "dependencies": {
     "@uptimewatch/config": "workspace:*",
     "@uptimewatch/db": "workspace:*",
+    "@uptimewatch/domain": "workspace:*",
+    "@uptimewatch/monitoring": "workspace:*",
     "@uptimewatch/queue": "workspace:*",
     "bullmq": "^6.7.6",
     "drizzle-orm": "^0.45.4",

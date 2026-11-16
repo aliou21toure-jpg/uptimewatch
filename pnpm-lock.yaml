@@ -41,6 +41,9 @@ importers:
       '@uptimewatch/email':
         specifier: workspace:*
         version: link:../../packages/email
+      '@uptimewatch/monitoring':
+        specifier: workspace:*
+        version: link:../../packages/monitoring
       '@uptimewatch/queue':
         specifier: workspace:*
         version: link:../../packages/queue
@@ -84,6 +87,12 @@ importers:
       '@uptimewatch/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@uptimewatch/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@uptimewatch/monitoring':
+        specifier: workspace:*
+        version: link:../../packages/monitoring
       '@uptimewatch/queue':
         specifier: workspace:*
         version: link:../../packages/queue
@@ -159,6 +168,9 @@ importers:
       '@uptimewatch/db':
         specifier: workspace:*
         version: link:../db
+      '@uptimewatch/monitoring':
+        specifier: workspace:*
+        version: link:../monitoring
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4(@types/pg@8.23.1)(kysely@0.29.9)(pg@8.23.1)
@@ -181,6 +193,12 @@ importers:
       resend:
         specifier: ^6.38.1
         version: 6.38.1
+    devDependencies:
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@types/node@22.20.5)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/monitoring:
     devDependencies:
       vitest:
         specifier: ^5.1.0

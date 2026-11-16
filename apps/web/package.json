@@ -14,6 +14,7 @@
     "@uptimewatch/db": "workspace:*",
     "@uptimewatch/domain": "workspace:*",
     "@uptimewatch/email": "workspace:*",
+    "@uptimewatch/monitoring": "workspace:*",
     "@uptimewatch/queue": "workspace:*",
     "better-auth": "^1.7.25",
     "next": "^16.4.6",

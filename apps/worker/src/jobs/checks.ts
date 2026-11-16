@@ -1,5 +1,6 @@
 import type { Database } from "@uptimewatch/db";
 import { schema } from "@uptimewatch/db";
+import { applyCheckResult, type Transition } from "@uptimewatch/domain";
 import type { CheckJobData } from "@uptimewatch/queue";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -53,16 +54,23 @@ export async function reserveCheck(db: Database, data: CheckJobData, now = new D
   return row ? { checkId: data.checkId, scheduledFor, attempt: row.attempt } : null;
 }
 
+export interface Completion {
+  recorded: boolean;
+  /** Set when this result opened or resolved an incident (consumed in Phase 5). */
+  transition: Transition;
+}
+
 /**
- * Records the outcome if this worker still owns the check (same attempt, still running).
- * A worker whose lease expired and was superseded cannot overwrite the newer attempt.
+ * Records the outcome if this worker still owns the check (same attempt, still running), then
+ * moves the monitor's state machine. A worker whose lease expired and was superseded cannot
+ * overwrite the newer attempt, and results older than the last applied slot do not move state.
  */
 export async function completeCheck(
   db: Database,
   reservation: Reservation,
   outcome: CheckOutcome,
   now = new Date(),
-): Promise<boolean> {
+): Promise<Completion> {
   return db.transaction(async (tx) => {
     const [row] = await tx
       .update(monitorChecks)
@@ -84,18 +92,31 @@ export async function completeCheck(
         ),
       )
       .returning({ monitorId: monitorChecks.monitorId, orgId: monitorChecks.orgId });
-    if (!row) return false;
+    if (!row) return { recorded: false, transition: null };
+    if (outcome.state !== "up" && outcome.state !== "down") return { recorded: true, transition: null };
 
-    if (outcome.state === "up" || outcome.state === "down") {
-      await tx
-        .update(monitors)
-        .set({
-          lastCheckedAt: now,
-          ...(outcome.state === "up" ? { lastSuccessAt: now } : {}),
-        })
-        .where(and(eq(monitors.id, row.monitorId), eq(monitors.orgId, row.orgId)));
+    // Lock the monitor so concurrent results for the same monitor apply one after the other.
+    const [monitor] = await tx
+      .select()
+      .from(monitors)
+      .where(and(eq(monitors.id, row.monitorId), eq(monitors.orgId, row.orgId)))
+      .for("update");
+    if (!monitor || !monitor.enabled) return { recorded: true, transition: null };
+    if (monitor.lastResultSlot && monitor.lastResultSlot >= reservation.scheduledFor) {
+      return { recorded: true, transition: null }; // a newer slot already decided the state
     }
-    return true;
+
+    const { next, transition } = applyCheckResult(monitor, outcome.state);
+    await tx
+      .update(monitors)
+      .set({
+        ...next,
+        lastResultSlot: reservation.scheduledFor,
+        lastCheckedAt: now,
+        ...(outcome.state === "up" ? { lastSuccessAt: now } : {}),
+      })
+      .where(eq(monitors.id, monitor.id));
+    return { recorded: true, transition };
   });
 }
 
@@ -131,5 +152,5 @@ export async function processCheckJob(
       clearTimeout(timer);
     }
   }
-  return (await completeCheck(db, reservation, outcome, now())) ? "completed" : "superseded";
+  return (await completeCheck(db, reservation, outcome, now())).recorded ? "completed" : "superseded";
 }

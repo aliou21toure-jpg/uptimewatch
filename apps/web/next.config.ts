@@ -14,6 +14,7 @@ const config: NextConfig = {
     "@uptimewatch/db",
     "@uptimewatch/domain",
     "@uptimewatch/email",
+    "@uptimewatch/monitoring",
     "@uptimewatch/queue",
   ],
   serverExternalPackages: ["pg", "ioredis"],

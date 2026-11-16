@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isBlockedAddress, staticDestinationProblem } from "./destination";
+import { isBlockedAddress, staticDestinationProblem } from "./ssrf";
 
 describe("isBlockedAddress", () => {
   it.each([

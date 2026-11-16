@@ -1,3 +1,4 @@
+import { AutoRefresh } from "@/components/auto-refresh";
 import { formatInterval, formatRelative, STATE_OPTIONS, StateBadge } from "@/components/monitors/state-badge";
 import { Card, Input, Select } from "@/components/ui/primitives";
 import { getDb } from "@uptimewatch/db";
@@ -102,6 +103,7 @@ export default async function MonitorsPage({ params, searchParams }: { params: P
           {nextHref && <Link href={nextHref} className="text-neutral-200 hover:underline">Next page →</Link>}
         </div>
       )}
+      <AutoRefresh seconds={20} />
     </div>
   );
 }

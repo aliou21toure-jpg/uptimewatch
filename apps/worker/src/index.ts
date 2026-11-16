@@ -2,7 +2,8 @@ import { getEnv } from "@uptimewatch/config";
 import { closeDb, getDb } from "@uptimewatch/db";
 import { CHECKS_QUEUE, checkJobId, createChecksQueue, createRedis, pingRedis, type CheckJobData } from "@uptimewatch/queue";
 import { Worker } from "bullmq";
-import { processCheckJob, type CheckExecutor } from "./jobs/checks";
+import { processCheckJob } from "./jobs/checks";
+import { createHttpExecutor } from "./jobs/http-executor";
 import { runMaintenance } from "./jobs/maintenance";
 import { dispatchOutbox, type OutboxEvent } from "./jobs/outbox";
 import { recoverAbandonedChecks } from "./jobs/recovery";
@@ -11,11 +12,6 @@ import { every } from "./loop";
 
 const CONCURRENCY = Number(process.env.WORKER_CONCURRENCY ?? 20);
 
-/**
- * Phase 3 placeholder: checks are planned, queued, reserved and recorded end to end, but no HTTP
- * request is made yet. Phase 4 replaces this with the SSRF-safe HTTP client.
- */
-const pendingEngine: CheckExecutor = async () => ({ state: "skipped", errorCode: "ENGINE_NOT_ENABLED" });
 
 /**
  * One worker process runs every background role. Each role is safe to run in several processes at
@@ -29,6 +25,7 @@ async function main(): Promise<void> {
   await pingRedis(queueConnection);
 
   const checksQueue = createChecksQueue(queueConnection);
+  const executor = createHttpExecutor();
 
   const publish = async (event: OutboxEvent) => {
     if (event.eventType !== "check.scheduled") throw new Error(`No publisher for ${event.eventType}`);
@@ -38,7 +35,7 @@ async function main(): Promise<void> {
 
   const checkWorker = new Worker<CheckJobData>(
     CHECKS_QUEUE,
-    async (job) => processCheckJob(db, pendingEngine, job.data),
+    async (job) => processCheckJob(db, executor, job.data),
     { connection: workerConnection, concurrency: CONCURRENCY },
   );
   checkWorker.on("failed", (job, error) => {

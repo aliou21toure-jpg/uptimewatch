@@ -47,3 +47,5 @@ success bodies are `{ "data": ... }`, errors are normalized:
 
 Defaults: `GET`, every 60 s, 10 s timeout, status 200–299. Intervals: 30, 60, 300, 600, 900, 1800, 3600 s.
 Header values are write-only: responses include `headerNames` only.
+
+| GET | `/api/v1/organizations/:orgId/monitors/:monitorId/checks` | viewer | `?from=&to=&state=&limit=1..500&cursor=` (default: last 24 h, max range 31 days) |

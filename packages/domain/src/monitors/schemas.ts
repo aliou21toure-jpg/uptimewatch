@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { staticDestinationProblem } from "../security/destination";
+import { staticDestinationProblem } from "@uptimewatch/monitoring";
 
 import { MAX_HEADERS, MONITOR_INTERVALS } from "./constants";
 

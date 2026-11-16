@@ -10,6 +10,7 @@ import {
   decryptMonitorHeaders,
   deleteMonitor,
   getMonitor,
+  listChecks,
   listMonitors,
   monitorSummary,
   pauseMonitor,
@@ -212,5 +213,50 @@ describe("listing", () => {
     await rejectsWith(listMonitors(db, owner, org.id, { cursor: "garbage" }), "VALIDATION_ERROR");
 
     expect(await monitorSummary(db, owner, org.id)).toMatchObject({ total: 8, active: 7 });
+  });
+});
+
+describe("check history", () => {
+  async function addChecks(orgId: string, monitorId: string, n: number) {
+    const now = Date.now();
+    await db.insert(schema.monitorChecks).values(
+      Array.from({ length: n }, (_, i) => ({
+        orgId,
+        monitorId,
+        scheduledFor: new Date(now - i * 60_000),
+        state: (i % 3 === 0 ? "down" : "up") as "down" | "up",
+        httpStatus: i % 3 === 0 ? 503 : 200,
+        latencyMs: 100 + i,
+      })),
+    );
+  }
+
+  it("pages newest first within the range and filters by state", async () => {
+    const { owner, org } = await setup();
+    const m = await createMonitor(db, owner, org.id, site);
+    await addChecks(org.id, m.id, 10);
+
+    const first = await listChecks(db, owner, org.id, m.id, { limit: 4 });
+    expect(first.data).toHaveLength(4);
+    expect(first.data[0]!.scheduledFor.getTime()).toBeGreaterThan(first.data[1]!.scheduledFor.getTime());
+    const second = await listChecks(db, owner, org.id, m.id, { limit: 4, cursor: first.nextCursor });
+    expect(second.data[0]!.scheduledFor.getTime()).toBeLessThan(first.data[3]!.scheduledFor.getTime());
+    expect((await listChecks(db, owner, org.id, m.id, { state: "down" })).data).toHaveLength(4);
+    expect((await listChecks(db, owner, org.id, m.id, { from: new Date(Date.now() - 150_000) })).data).toHaveLength(3);
+  });
+
+  it("validates the range", async () => {
+    const { owner, org } = await setup();
+    const m = await createMonitor(db, owner, org.id, site);
+    await rejectsWith(listChecks(db, owner, org.id, m.id, { from: "2026-01-01", to: "2026-03-01" }), "VALIDATION_ERROR");
+  });
+
+  it("is invisible to other organizations", async () => {
+    const a = await setup();
+    const b = await setup();
+    const m = await createMonitor(db, a.owner, a.org.id, site);
+    await addChecks(a.org.id, m.id, 3);
+    await rejectsWith(listChecks(db, b.owner, a.org.id, m.id, {}), "NOT_FOUND");
+    await rejectsWith(listChecks(db, b.owner, b.org.id, m.id, {}), "NOT_FOUND");
   });
 });

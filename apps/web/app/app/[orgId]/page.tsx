@@ -1,3 +1,4 @@
+import { AutoRefresh } from "@/components/auto-refresh";
 import { Card } from "@/components/ui/primitives";
 import { getDb } from "@uptimewatch/db";
 import { can, monitorSummary } from "@uptimewatch/domain";
@@ -12,7 +13,7 @@ export default async function OrgOverview({ params }: { params: Promise<{ orgId:
 
   const tiles: [string, string, string | undefined][] = [
     ["Active monitors", String(summary.active), summary.total > summary.active ? `${summary.total - summary.active} paused` : undefined],
-    ["Down", String(down), down ? "Confirmed incidents" : "All clear"],
+    ["Down", String(down), down ? "Confirmed outages" : "All clear"],
     ["Global uptime", "—", "Available once checks run"],
   ];
 
@@ -32,6 +33,7 @@ export default async function OrgOverview({ params }: { params: Promise<{ orgId:
           </Card>
         ))}
       </div>
+      <AutoRefresh seconds={20} />
       {summary.total === 0 && (
         <Card className="mt-6">
           <p className="text-sm text-neutral-300">No monitors yet.</p>

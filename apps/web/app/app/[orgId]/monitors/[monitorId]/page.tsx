@@ -1,13 +1,19 @@
+import { AutoRefresh } from "@/components/auto-refresh";
+import { CheckHistory } from "@/components/monitors/check-history";
 import { MonitorActions } from "@/components/monitors/monitor-actions";
 import { formatInterval, formatRelative, StateBadge } from "@/components/monitors/state-badge";
 import { Card } from "@/components/ui/primitives";
-import { can } from "@uptimewatch/domain";
+import { getDb } from "@uptimewatch/db";
+import { can, listChecks } from "@uptimewatch/domain";
 import Link from "next/link";
+import { loadOrg } from "../../org-context";
 import { loadMonitor } from "./monitor-data";
 
 export default async function MonitorPage({ params }: { params: Promise<{ orgId: string; monitorId: string }> }) {
   const { orgId, monitorId } = await params;
   const { org, monitor: m } = await loadMonitor(orgId, monitorId);
+  const { session } = await loadOrg(orgId);
+  const { data: checks } = await listChecks(getDb(), { userId: session.user.id }, orgId, monitorId, { limit: 60 });
 
   const settings: [string, string][] = [
     ["Method", m.method],
@@ -65,9 +71,10 @@ export default async function MonitorPage({ params }: { params: Promise<{ orgId:
         </Card>
       </div>
       <Card className="mt-4">
-        <h2 className="mb-2 font-medium">Check history</h2>
-        <p className="text-sm text-neutral-400">Results, latency and incidents will appear here once the check engine is running.</p>
+        <h2 className="mb-4 font-medium">Recent checks</h2>
+        <CheckHistory checks={checks} />
       </Card>
+      <AutoRefresh seconds={15} />
     </div>
   );
 }

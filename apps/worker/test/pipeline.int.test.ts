@@ -86,7 +86,7 @@ describe("leases and recovery", () => {
     // Worker B runs the retry.
     expect(await processCheckJob(db, upExecutor, retryEvent!.payload as CheckJobData, { now: () => afterLease })).toBe("completed");
     // Worker A wakes up and tries to record a stale result: refused (fencing on the attempt number).
-    expect(await completeCheck(db, zombie!, { state: "down", errorCode: "TIMEOUT" })).toBe(false);
+    expect((await completeCheck(db, zombie!, { state: "down", errorCode: "TIMEOUT" })).recorded).toBe(false);
     const [check] = await db.select().from(schema.monitorChecks);
     expect(check).toMatchObject({ state: "up", attempts: 2 });
   });
