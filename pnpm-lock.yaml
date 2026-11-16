@@ -141,6 +141,9 @@ importers:
 
   packages/domain:
     dependencies:
+      '@uptimewatch/config':
+        specifier: workspace:*
+        version: link:../config
       '@uptimewatch/db':
         specifier: workspace:*
         version: link:../db

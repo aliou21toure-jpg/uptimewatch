@@ -33,3 +33,17 @@ success bodies are `{ "data": ... }`, errors are normalized:
 | GET | `/api/v1/organizations/:orgId/invitations` | admin | |
 | DELETE | `/api/v1/organizations/:orgId/invitations/:invitationId` | admin | |
 | POST | `/api/v1/invitations/accept` | invited, verified user | `{ token }` |
+
+## Monitors
+| Method | Path | Permission | Body / query |
+|---|---|---|---|
+| POST | `/api/v1/organizations/:orgId/monitors` | member | `{ name, url, method?, intervalSeconds?, timeoutMs?, expectedStatusMin?, expectedStatusMax?, bodyContains?, headers?: [{ name, value }] }` |
+| GET | `/api/v1/organizations/:orgId/monitors` | viewer | `?q=&state=&limit=1..100&cursor=` → `{ data, nextCursor }` |
+| GET | `/api/v1/organizations/:orgId/monitors/:monitorId` | viewer | |
+| PATCH | `/api/v1/organizations/:orgId/monitors/:monitorId` | member | any subset of the create fields; `headers` replaces all |
+| DELETE | `/api/v1/organizations/:orgId/monitors/:monitorId` | member | |
+| POST | `/api/v1/organizations/:orgId/monitors/:monitorId/pause` | member | |
+| POST | `/api/v1/organizations/:orgId/monitors/:monitorId/resume` | member | |
+
+Defaults: `GET`, every 60 s, 10 s timeout, status 200–299. Intervals: 30, 60, 300, 600, 900, 1800, 3600 s.
+Header values are write-only: responses include `headerNames` only.

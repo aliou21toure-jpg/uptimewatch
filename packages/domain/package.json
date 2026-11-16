@@ -5,13 +5,15 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./permissions": "./src/organizations/permissions.ts"
+    "./permissions": "./src/organizations/permissions.ts",
+    "./monitors/constants": "./src/monitors/constants.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
+    "@uptimewatch/config": "workspace:*",
     "@uptimewatch/db": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "zod": "^4.6.7"

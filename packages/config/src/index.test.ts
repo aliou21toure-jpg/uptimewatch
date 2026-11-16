@@ -59,3 +59,13 @@ describe("parseWebEnv", () => {
     );
   });
 });
+
+describe("getEncryptionKey", () => {
+  it("rejects keys that are not 32 bytes", async () => {
+    const { getEncryptionKey } = await import("./index");
+    const previous = process.env.ENCRYPTION_KEY;
+    process.env.ENCRYPTION_KEY = Buffer.alloc(16).toString("base64");
+    expect(() => getEncryptionKey()).toThrow(/ENCRYPTION_KEY/);
+    process.env.ENCRYPTION_KEY = previous;
+  });
+});

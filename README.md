@@ -3,8 +3,8 @@
 Multi-tenant uptime monitoring for websites and APIs: scheduled HTTP checks, confirmed-failure
 incident detection, email alerts, availability analytics and public status pages.
 
-> **Status: Phase 1 of 8 — accounts and organizations.** Sign-up with email verification, password
-> reset, organizations, roles and invitations work end to end. Monitoring lands in the next phases.
+> **Status: Phase 2 of 8 — monitor management.** Accounts, organizations, roles, invitations and
+> monitor configuration work end to end. Scheduled checks arrive in Phases 3–4.
 
 ## Architecture
 
@@ -14,7 +14,7 @@ truth; Redis/BullMQ carries jobs; a transactional outbox links the two so no eve
 ```
 apps/web         Next.js 16 — UI, REST API (/api/v1), auth (/api/auth), health endpoints
 apps/worker      Scheduler, outbox dispatcher, check + notification workers (Phase 3+)
-packages/domain  Business rules: tenant gate, roles, organizations, invitations
+packages/domain  Business rules: tenant gate, roles, organizations, invitations, monitors, SSRF rules
 packages/db      Drizzle ORM schema, SQL migrations, client
 packages/email   Email transport (Resend, or console in development)
 packages/config  Validated environment (Zod)
@@ -30,7 +30,7 @@ Requirements: Node.js 22, pnpm 10, Docker.
 
 ```bash
 cp .env.example .env
-# set BETTER_AUTH_SECRET in .env, e.g. with: openssl rand -base64 32
+# set BETTER_AUTH_SECRET and ENCRYPTION_KEY in .env, each with: openssl rand -base64 32
 pnpm install
 pnpm infra:up        # PostgreSQL 17 + Redis 7
 pnpm db:migrate      # create the tables
@@ -65,8 +65,8 @@ local database instead: `TEST_DATABASE_URL=postgres://... pnpm test`.
 |---|---|---|
 | 0 | Monorepo, tooling, Docker, CI | Done |
 | 1 | Authentication and multi-tenancy | Done |
-| 2 | Monitor management | Next |
-| 3 | Scheduler, outbox, queues | — |
+| 2 | Monitor management | Done |
+| 3 | Scheduler, outbox, queues | Next |
 | 4 | HTTP check engine with SSRF protection | — |
 | 5 | Incidents and email notifications | — |
 | 6 | Dashboard and analytics | — |

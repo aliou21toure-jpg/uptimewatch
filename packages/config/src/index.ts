@@ -77,3 +77,23 @@ export function getWebEnv(): WebEnv {
   cachedWeb ??= parseWebEnv(process.env);
   return cachedWeb;
 }
+
+const encryptionKeySchema = z.object({
+  ENCRYPTION_KEY: z
+    .string()
+    .refine((v) => Buffer.from(v, "base64").length === 32, "must be 32 bytes encoded in base64"),
+});
+
+let cachedKey: Buffer | undefined;
+
+/**
+ * AES-256 key protecting monitor secrets (custom headers). Validated on its own so that only the
+ * processes that touch secrets (web, check workers) need it.
+ */
+export function getEncryptionKey(): Buffer {
+  if (!cachedKey) {
+    const { ENCRYPTION_KEY } = parseWith(encryptionKeySchema, process.env);
+    cachedKey = Buffer.from(ENCRYPTION_KEY, "base64");
+  }
+  return cachedKey;
+}
